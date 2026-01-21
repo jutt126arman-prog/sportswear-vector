@@ -1,36 +1,30 @@
 import streamlit as st
-from transparent_background import Remover
+from rembg import remove
 from PIL import Image
 import io
 
-st.set_page_config(page_title="AI Texture Extractor")
-st.title("👕 AI Sportswear Texture Extractor")
+st.set_page_config(page_title="Sportswear Texture Extractor")
+st.title("👕 AI Texture Design Extractor")
+st.write("Upload your shirt image to extract only the design texture.")
 
-# AI Remover load ho raha hai
-@st.cache_resource
-def load_remover():
-    return Remover()
+file = st.file_uploader("Upload Image", type=["jpg", "png", "jpeg"])
 
-remover = load_remover()
-
-uploaded_file = st.file_uploader("Upload Image", type=["jpg", "jpeg", "png"])
-
-if uploaded_file:
-    img = Image.open(uploaded_file).convert('RGB')
-    
-    with st.spinner('Extracting texture... please wait...'):
-        # AI Processing (Isme 1-2 minute lag sakte hain pehli baar)
-        out = remover.process(img) 
+if file:
+    # Processing
+    with st.spinner('Extracting design... please wait...'):
+        input_image = Image.open(file)
         
-        # Display Result
-        st.image(out, caption="Extracted Texture", use_container_width=True)
+        # AI Background Removal (Sirf design bachega)
+        output_image = remove(input_image)
         
-        # Download as PNG (Transparent)
+        # Display Results
+        col1, col2 = st.columns(2)
+        with col1:
+            st.image(input_image, caption="Original Image", use_container_width=True)
+        with col2:
+            st.image(output_image, caption="Extracted Texture", use_container_width=True)
+        
+        # Download Button
         buf = io.BytesIO()
-        out.save(buf, format="PNG")
-        st.download_button(
-            label="Download PNG",
-            data=buf.getvalue(),
-            file_name="texture_extracted.png",
-            mime="image/png"
-        )
+        output_image.save(buf, format="PNG")
+        st.download_button("📥 Download Texture PNG", buf.getvalue(), "extracted_design.png", "image/png")
