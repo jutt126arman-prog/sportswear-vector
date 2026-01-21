@@ -3,9 +3,7 @@ from rembg import remove
 from PIL import Image
 import io
 
-st.set_page_config(page_title="Auto Vector")
 st.title("👕 Sportswear Texture Extractor")
-
 file = st.file_uploader("Upload Camouflage Image", type=["jpg", "png", "jpeg"])
 
 if file:
