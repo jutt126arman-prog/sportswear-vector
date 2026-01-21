@@ -1,3 +1,2 @@
 streamlit
-transparent-background
-pillow
+rembg
