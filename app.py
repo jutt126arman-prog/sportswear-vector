@@ -1,49 +1,67 @@
 import streamlit as st
 import cv2
 import numpy as np
-import base64
 
-st.set_page_config(page_title="Pro Vector & Texture Extractor", layout="wide")
-st.title("⚡ AI Vector & Texture Tool")
+st.set_page_config(page_title="Pro Design Extractor", layout="wide")
+st.title("⚡ Vectorizer Style Design Extractor")
 
 file = st.file_uploader("Upload Mockup (Pic 1)", type=["jpg", "png", "jpeg"])
 
 if file:
+    # Image loading
     img_array = np.frombuffer(file.read(), np.uint8)
     img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
     h, w, _ = img.shape
 
-    with st.spinner('Vectorizing Design...'):
-        # 1. Texture Flattening (Shirt se design nikalna)
-        roi = img[int(h*0.15):int(h*0.85), int(w*0.2):int(w*0.8)]
-        flat = cv2.resize(roi, (1200, 1200), interpolation=cv2.INTER_LANCZOS4)
-        
-        # 2. Vectorization (SVG Generation Logic)
-        gray = cv2.cvtColor(flat, cv2.COLOR_BGR2GRAY)
-        _, thresh = cv2.threshold(gray, 127, 255, cv2.THRESH_BINARY)
-        contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-        
-        # SVG File banana
-        svg_data = f'<svg width="1200" height="1200" xmlns="http://www.w3.org/2000/svg">'
-        for cnt in contours:
-            path_data = "M " + " L ".join([f"{p[0][0]},{p[0][1]}" for p in cnt]) + " Z"
-            svg_data += f'<path d="{path_data}" fill="black" />'
-        svg_data += '</svg>'
+    with st.spinner('Extracting Full Design...'):
+        # --- FLAT EXTRACTION LOGIC ---
+        # Shirt ke main area ko select karke poori screen par stretch karna
+        src_pts = np.float32([
+            [w*0.2, h*0.1], [w*0.8, h*0.1], 
+            [w*0.15, h*0.9], [w*0.85, h*0.9]
+        ])
+        dst_pts = np.float32([
+            [0, 0], [1500, 0], 
+            [0, 1500], [1500, 1500]
+        ])
 
-        # 3. GUI Display
+        matrix = cv2.getPerspectiveTransform(src_pts, dst_pts)
+        flat_design = cv2.warpPerspective(img, matrix, (1500, 1500))
+        
+        # Display Results
         col1, col2 = st.columns(2)
         with col1:
-            st.image(cv2.cvtColor(img, cv2.COLOR_BGR2RGB), caption="Original Mockup")
+            st.image(cv2.cvtColor(img, cv2.COLOR_BGR2RGB), caption="Pic 1: Original")
         with col2:
-            st.image(cv2.cvtColor(flat, cv2.COLOR_BGR2RGB), caption="Extracted Design")
+            st.image(cv2.cvtColor(flat_design, cv2.COLOR_BGR2RGB), caption="Pic 2: Flat Design Result")
 
-        # 4. Professional Download Buttons
+        # --- DOWNLOAD SECTION ---
         st.divider()
-        c1, c2 = st.columns(2)
-        with c1:
-            _, img_buf = cv2.imencode('.png', cv2.cvtColor(flat, cv2.COLOR_RGB2BGR))
-            st.download_button("📥 Download PNG Texture", img_buf.tobytes(), "design.png", "image/png")
-        with c2:
-            st.download_button("📐 Download SVG Vector", svg_data, "design_vector.svg", "image/svg+xml")
-
-st.success("Tip: Vectorizer.ai jaisa result milne ke liye SVG file download karein!")
+        st.subheader("📥 Download Files")
+        
+        # PNG Download
+        _, img_buf = cv2.imencode('.png', flat_design)
+        st.download_button(
+            label="🖼️ Download High-Res PNG",
+            data=img_buf.tobytes(),
+            file_name="extracted_design.png",
+            mime="image/png"
+        )
+        
+        # SVG (Vector) Download - CorelDraw ke liye
+        gray = cv2.cvtColor(flat_design, cv2.COLOR_BGR2GRAY)
+        _, thresh = cv2.threshold(gray, 127, 255, cv2.THRESH_BINARY_INV)
+        contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        
+        svg_data = f'<svg width="1500" height="1500" xmlns="http://www.w3.org/2000/svg">'
+        for cnt in contours:
+            path = "M " + " L ".join([f"{p[0][0]},{p[0][1]}" for p in cnt]) + " Z"
+            svg_data += f'<path d="{path}" fill="black" />'
+        svg_data += '</svg>'
+        
+        st.download_button(
+            label="📐 Download SVG Vector (CorelDraw)",
+            data=svg_data,
+            file_name="design_vector.svg",
+            mime="image/svg+xml"
+        )
