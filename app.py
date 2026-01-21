@@ -1,30 +1,28 @@
 import streamlit as st
-from rembg import remove
+import cv2
+import numpy as np
 from PIL import Image
-import io
 
-# Page setup
-st.set_page_config(page_title="Sportswear Tool", layout="centered")
-st.title("👕 Sportswear Texture Extractor")
+st.title("👕 Sportswear Design Tool")
 
-# File uploader
-uploaded_file = st.file_uploader("Upload Camouflage Image", type=["jpg", "png", "jpeg"])
+file = st.file_uploader("Upload Image", type=["jpg", "png", "jpeg"])
 
-if uploaded_file:
-    # 1. Show Original
-    image = Image.open(uploaded_file)
-    st.image(image, caption="Original Image", use_container_width=True)
+if file:
+    # Image read karna
+    file_bytes = np.asarray(bytearray(file.read()), dtype=np.uint8)
+    img = cv2.imdecode(file_bytes, 1)
     
-    # 2. Process
-    with st.spinner('Extracting texture... Please wait.'):
-        img_bytes = uploaded_file.getvalue()
-        result_bytes = remove(img_bytes)
-        result_img = Image.open(io.BytesIO(result_bytes))
-        
-        # 3. Show Result
-        st.image(result_img, caption="Final Texture (No Background)", use_container_width=True)
-        
-        # 4. Download
-        st.download_button("📥 Download Texture PNG", result_bytes, "texture.png", "image/png")
-else:
-    st.info("Please upload an image to start.")
+    # Background remove karne ka asaan tareeka (GrabCut)
+    st.write("Processing... Please wait.")
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    _, thresh = cv2.threshold(gray, 240, 255, cv2.THRESH_BINARY_INV)
+    
+    # Result dikhana
+    res = cv2.bitwise_and(img, img, mask=thresh)
+    res_rgb = cv2.cvtColor(res, cv2.COLOR_BGR2RGB)
+    
+    st.image(res_rgb, caption="Processed Texture")
+    
+    # Download Button
+    result_img = Image.fromarray(res_rgb)
+    st.download_button("Download Design", file.getvalue(), "design.png")
