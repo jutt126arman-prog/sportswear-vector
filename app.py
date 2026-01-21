@@ -1,55 +1,43 @@
 import streamlit as st
-from rembg import remove
 import cv2
 import numpy as np
 from PIL import Image
 import io
 
-st.set_page_config(page_title="Flat Texture Extractor", layout="wide")
-st.title("🎨 Pro Shirt Texture Extractor (Flat Mode)")
+# Page Config
+st.set_page_config(page_title="Design Extractor", layout="wide")
+st.title("👕 AI Sportswear Texture Extractor")
 
-uploaded_file = st.file_uploader("Upload Shirt Mockup (Pic 1)", type=["jpg", "png", "jpeg"])
+# File Uploader
+file = st.file_uploader("Upload Pic 1 (Mockup)", type=["jpg", "png", "jpeg"])
 
-if uploaded_file:
-    # 1. Image loading
-    input_image = Image.open(uploaded_file)
+if file:
+    # Image loading
+    file_bytes = np.asarray(bytearray(file.read()), dtype=np.uint8)
+    img = cv2.imdecode(file_bytes, 1)
+    h, w, _ = img.shape
+
+    # --- TEXTURE EXTRACTION LOGIC ---
+    # Shirt ke main body area ko capture karna (Sleeves aur collar ignore karke)
+    # Ye shirt ke design ko extract karke flat kar deta hai
+    roi = img[int(h*0.15):int(h*0.85), int(w*0.2):int(w*0.8)]
     
-    with st.spinner('Extracting Flat Texture...'):
-        # 2. Background Remove (Shirt isolate karna)
-        no_bg = remove(input_image)
-        img_np = np.array(no_bg)
+    # Texture ko Pic 2 ki tarah square aur flat banana
+    flat_texture = cv2.resize(roi, (1000, 1000), interpolation=cv2.INTER_LANCZOS4)
+    
+    # Display Results
+    col1, col2 = st.columns(2)
+    with col1:
+        st.image(cv2.cvtColor(img, cv2.COLOR_BGR2RGB), caption="Pic 1: Original Mockup", use_container_width=True)
+    with col2:
+        st.image(cv2.cvtColor(flat_texture, cv2.COLOR_BGR2RGB), caption="Pic 2: Extracted Flat Texture", use_container_width=True)
 
-        # 3. Design ko Flat Square banana
-        # Hum shirt ke main body area ka coordinates nikal kar usay stretch karenge
-        h, w = img_np.shape[:2]
-        
-        # Points for transformation (Shirt ke center se design pakarna)
-        src_pts = np.float32([
-            [w*0.2, h*0.2], [w*0.8, h*0.2], 
-            [w*0.2, h*0.8], [w*0.8, h*0.8]
-        ])
-        dst_pts = np.float32([
-            [0, 0], [800, 0], 
-            [0, 800], [800, 800]
-        ])
-        
-        # Warp Perspective (Design ko flat karna)
-        matrix = cv2.getPerspectiveTransform(src_pts, dst_pts)
-        flat_texture = cv2.warpPerspective(img_np, matrix, (800, 800))
-
-        # 4. Result Display
-        col1, col2 = st.columns(2)
-        with col1:
-            st.image(input_image, caption="Pic 1: Original Mockup", use_container_width=True)
-        with col2:
-            st.image(flat_texture, caption="Pic 2: Extracted Flat Texture", use_container_width=True)
-
-        # 5. Download Button
-        res_img = Image.fromarray(flat_texture)
-        buf = io.BytesIO()
-        res_img.save(buf, format="PNG")
-        
-        st.divider()
-        st.download_button("📥 Download Flat Texture (High Res)", buf.getvalue(), "flat_design.png", "image/png")
-
-st.info("Tip: Is flat design ko CorelDraw mein 'PowerTrace' karein taake ye vector ban jaye.")
+    # Download Button
+    _, buffer = cv2.imencode('.png', flat_texture)
+    st.divider()
+    st.download_button(
+        label="📥 Download Flat Texture (PNG)",
+        data=buffer.tobytes(),
+        file_name="flat_design_texture.png",
+        mime="image/png"
+    )
