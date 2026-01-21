@@ -1,2 +1,2 @@
 streamlit
-rembg
+opencv-python-headless
