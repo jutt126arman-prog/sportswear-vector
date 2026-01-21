@@ -1,28 +1,46 @@
 import streamlit as st
 import cv2
 import numpy as np
-from PIL import Image
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import letter
+import io
 
-st.title("👕 Sportswear Design Tool")
+st.title("👕 Pro Sportswear Vector Tool")
 
-file = st.file_uploader("Upload Image", type=["jpg", "png", "jpeg"])
+file = st.file_uploader("Upload Camouflage Design", type=["jpg", "png", "jpeg"])
 
 if file:
-    # Image read karna
+    # Image process karna
     file_bytes = np.asarray(bytearray(file.read()), dtype=np.uint8)
     img = cv2.imdecode(file_bytes, 1)
     
-    # Background remove karne ka asaan tareeka (GrabCut)
-    st.write("Processing... Please wait.")
+    # Background Removal & Tracing
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    _, thresh = cv2.threshold(gray, 240, 255, cv2.THRESH_BINARY_INV)
+    _, thresh = cv2.threshold(gray, 200, 255, cv2.THRESH_BINARY_INV)
     
-    # Result dikhana
-    res = cv2.bitwise_and(img, img, mask=thresh)
-    res_rgb = cv2.cvtColor(res, cv2.COLOR_BGR2RGB)
+    # Vector PDF Banana
+    pdf_buffer = io.BytesIO()
+    c = canvas.Canvas(pdf_buffer, pagesize=letter)
     
-    st.image(res_rgb, caption="Processed Texture")
+    # Design ko "Paths" mein convert karna (Simple Tracing)
+    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     
-    # Download Button
-    result_img = Image.fromarray(res_rgb)
-    st.download_button("Download Design", file.getvalue(), "design.png")
+    for cnt in contours:
+        points = cnt.reshape(-1, 2)
+        if len(points) > 2:
+            path = c.beginPath()
+            path.moveTo(points[0][0], letter[1] - points[0][1])
+            for x, y in points[1:]:
+                path.lineTo(x, letter[1] - y)
+            path.close()
+            c.drawPath(path, stroke=1, fill=1)
+    
+    c.save()
+    pdf_data = pdf_buffer.getvalue()
+
+    # Display Results
+    st.image(thresh, caption="Traced Vector Preview", channels="GRAY")
+    
+    # Download Buttons
+    st.download_button("📥 Download Vector PDF (for Corel/AI)", pdf_data, "design_vector.pdf", "application/pdf")
+    st.info("Tip: Is PDF ko CorelDraw ya Illustrator mein khol kar 'Ungroup' karein, ye poora vector ban chuka hoga.")
